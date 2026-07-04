@@ -1,0 +1,37 @@
+spring:
+  application:
+    name: realtime-collab-docs
+
+  # Cấu hình kết nối PostgreSQL
+  datasource:
+    url: jdbc:postgresql://localhost:5432/realtime-collab-docs
+    username: admin
+    password: 123456
+    driver-class-name: org.postgresql.Driver
+
+  # Cấu hình JPA (Hibernate)
+  jpa:
+    hibernate:
+      ddl-auto: validate # Chỉ kiểm tra DB, việc tạo bảng sẽ giao cho Flyway
+    show-sql: true       # In ra console các câu lệnh SQL để dễ debug
+    properties:
+      hibernate:
+        format_sql: true
+
+  # Cấu hình Flyway để tự động chạy script DB Migration
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+  # Cấu hình kết nối Redis
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+# Cấu hình log để dễ theo dõi lỗi
+logging:
+  level:
+    root: INFO
+    org.springframework.web: DEBUG

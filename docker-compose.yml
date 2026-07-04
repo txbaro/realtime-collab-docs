@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  # Cấu hình cho PostgreSQL
+  postgres_db:
+    image: postgres:15-alpine
+    container_name: cms_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: admin          
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: realtime-collab-docs 
+    ports:
+      - "5432:5432"                      
+    volumes:
+      - postgres_data:/var/lib/postgresql/data 
+
+  # Cấu hình cho Redis
+  redis_cache:
+    image: redis:7-alpine
+    container_name: cms_redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres_data:
