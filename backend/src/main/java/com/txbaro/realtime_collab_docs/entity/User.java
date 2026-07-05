@@ -1,4 +1,4 @@
-package com.txbaro.realtime_collab_docs.entity; // Nhớ đổi tên package cho khớp với project của bạn
+package com.txbaro.realtime_collab_docs.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -33,8 +33,9 @@ public class User {
     @Column(name = "avatar_url")
     private String avatarUrl;
 
+    @Builder.Default
     @Column(name = "status", nullable = false, length = 30)
-    private String status = "PENDING_VERIFICATION";
+    private String status = "PENDING_VERIFICATION";;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

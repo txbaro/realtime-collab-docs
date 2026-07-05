@@ -1,14 +1,15 @@
 package com.txbaro.realtime_collab_docs.dto;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 
 @Getter
 @Setter
-public class RegisterRequest {
+@AllArgsConstructor
+public class UserInfoResponse {
+    private String email;
     private String firstname;
     private String lastname;
-    private String email;
-    private String password;
-    private String otpCode;
+    private String status;
 }
