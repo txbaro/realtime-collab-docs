@@ -20,7 +20,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final StringRedisTemplate redisTemplate;
-    // Có thể xóa dòng khai báo UserDetailsService nếu bạn không dùng đến trong file này
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,

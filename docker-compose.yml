@@ -14,7 +14,6 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
-  # Cấu hình cho Redis
   redis_cache:
     image: redis:7-alpine
     container_name: cms_redis

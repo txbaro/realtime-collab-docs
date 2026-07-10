@@ -3,6 +3,7 @@ package com.txbaro.realtime_collab_docs.security;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -10,13 +11,15 @@ import java.util.Date;
 
 @Component
 public class JwtUtil {
-    // Chìa khóa bí mật để ký Token (Nên dài ít nhất 32 ký tự). 
-    // Trong thực tế sẽ được giấu vào file application.yml, hiện tại ta để cứng để test.
-    private final String SECRET_KEY = "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970";
-    private final long EXPIRATION_TIME = 86400000; // 1 ngày (tính bằng milliseconds)
+
+   @Value("${spring.jwt.secret}")
+    private String secretKey;
+
+    @Value("${spring.jwt.expiration}")
+    private long expirationTime;
 
     private SecretKey getSignKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(SECRET_KEY);
+        byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
@@ -24,7 +27,7 @@ public class JwtUtil {
         return Jwts.builder()
                 .subject(email)
                 .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + EXPIRATION_TIME))
+                .expiration(new Date(System.currentTimeMillis() + expirationTime))
                 .signWith(getSignKey())
                 .compact();
     }

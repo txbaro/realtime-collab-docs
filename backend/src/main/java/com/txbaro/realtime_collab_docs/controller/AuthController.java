@@ -40,7 +40,7 @@ public class AuthController {
 
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUser(Principal principal) {
-        String email = principal.getName(); // Spring Security tự bóc email từ Token
+        String email = principal.getName();
         
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
@@ -55,31 +55,25 @@ public class AuthController {
 
     @PostMapping("/request-register-otp")
     public ResponseEntity<?> requestRegisterOtp(@RequestBody OtpRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
+        Optional<User> userOpt = userRepository.findByEmail(request.getEmail());
+        if (userOpt.isPresent() && !"PENDING_VERIFICATION".equals(userOpt.get().getStatus())) {
             return ResponseEntity.badRequest().body("Lỗi: Email đã được sử dụng!");
         }
-        otpService.generateAndSendOtp(request.getEmail(), "REGISTER");
-        return ResponseEntity.ok("Đã gửi mã OTP đăng ký đến email: " + request.getEmail());
+        otpService.generateAndSendOtp(request.getEmail(), "VERIFY_ACCOUNT");
+        return ResponseEntity.ok("Đã gửi mã OTP kích hoạt đến email: " + request.getEmail());
     }
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
-        // 1. Quét thẻ OTP dưới Redis trước tiên
-        if (!otpService.validateOtp(request.getEmail(), request.getOtpCode(), "REGISTER")) {
-            return ResponseEntity.badRequest().body("Lỗi: Mã OTP không hợp lệ hoặc đã hết hạn!");
-        }
-
-        // 2. Kiểm tra lại DB một lần nữa để chắc chắn trong 5 phút qua không ai lấy mất Email này
         if (userRepository.existsByEmail(request.getEmail())) {
             return ResponseEntity.badRequest().body("Lỗi: Email đã tồn tại!");
         }
 
-        // 3. Tiến hành ghi dữ liệu CHÍNH THỨC vào PostgreSQL
         User newUser = User.builder()
                 .firstname(request.getFirstname())
                 .lastname(request.getLastname())
                 .email(request.getEmail())
-                .status("ACTIVE") // Mặc định kích hoạt luôn vì đã xác thực OTP thành công
+                .status("PENDING_VERIFICATION") 
                 .build();
         User savedUser = userRepository.save(newUser);
 
@@ -89,7 +83,10 @@ public class AuthController {
                 .build();
         userAuthRepository.save(userAuth);
 
-        return ResponseEntity.ok("Đăng ký tài khoản thành công! Bạn có thể đăng nhập ngay bây giờ.");
+        // Tự động gửi mã OTP kích hoạt
+        otpService.generateAndSendOtp(request.getEmail(), "VERIFY_ACCOUNT");
+
+        return ResponseEntity.ok("Đăng ký tài khoản thành công! Mã OTP kích hoạt đã được gửi đến email của bạn.");
     }
 
     @PostMapping("/login")
@@ -100,26 +97,21 @@ public class AuthController {
         }
         User user = userOpt.get();
 
-        // 1. Chặn nếu tài khoản chưa xác minh OTP lúc đăng ký
         if ("PENDING_VERIFICATION".equals(user.getStatus())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body("Lỗi: Tài khoản chưa được kích hoạt. Vui lòng kiểm tra email!");
         }
 
-        // 2. Kiểm tra tính hợp lệ của mật khẩu
         Optional<UserAuth> userAuthOpt = userAuthRepository.findByUser(user);
         if (userAuthOpt.isEmpty() || !passwordEncoder.matches(request.getPassword(), userAuthOpt.get().getPasswordHash())) {
             return ResponseEntity.badRequest().body("Lỗi: Sai mật khẩu!");
         }
 
-        // 3. TÍNH NĂNG MỚI: Tự động "đánh thức" nếu tài khoản đang bị vô hiệu hóa tạm thời
         if ("INACTIVE".equals(user.getStatus())) {
             user.setStatus("ACTIVE");
             userRepository.save(user);
-            // Có thể dùng emailService ở đây để gửi thư thông báo: "Tài khoản của bạn vừa được đăng nhập và kích hoạt lại"
         }
 
-        // 4. Cấp thẻ JWT và trả thông tin về cho Frontend
         String token = jwtUtil.generateToken(user.getEmail());
         String fullname = user.getFirstname() + " " + user.getLastname();
 
@@ -133,8 +125,6 @@ public class AuthController {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);
             
-            // Lưu Token này vào Redis với tiền tố BLACKLIST. 
-            // Đặt thời gian sống (TTL) là 1 ngày (bằng với hạn sử dụng tối đa của JWT)
             redisTemplate.opsForValue().set("BLACKLIST:" + token, "logged_out", Duration.ofDays(1));
         }
         
@@ -142,26 +132,27 @@ public class AuthController {
     }
 
     @PostMapping("/verify-account")
-    public ResponseEntity<?> verifyAccount(@RequestBody OtpRequest request) { // Tái sử dụng OtpRequest, nhưng bạn nhớ thêm trường otpCode vào file OtpRequest.java nhé
-        // 1. Kiểm tra mã OTP
+    public ResponseEntity<?> verifyAccount(@RequestBody OtpRequest request) { 
         if (!otpService.validateOtp(request.getEmail(), request.getOtpCode(), "VERIFY_ACCOUNT")) {
             return ResponseEntity.badRequest().body("Lỗi: Mã xác nhận không đúng hoặc đã hết hạn!");
         }
 
-        // 2. Tìm user trong DB
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy user"));
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
 
-        // 3. Đổi trạng thái và lưu lại
         user.setStatus("ACTIVE");
         userRepository.save(user);
 
-        return ResponseEntity.ok("Kích hoạt tài khoản thành công! Bạn có thể đăng nhập ngay bây giờ.");
+        // Tự động cấp mã Token JWT và đăng nhập cho người dùng
+        String token = jwtUtil.generateToken(user.getEmail());
+        String fullname = user.getFirstname() + " " + user.getLastname();
+
+        return ResponseEntity.ok(new AuthResponse(token, user.getEmail(), fullname));
     }
 
     @PostMapping("/request-password-otp")
     public ResponseEntity<?> requestPasswordOtp(Principal principal) {
-        String email = principal.getName(); // Lấy email từ JWT Token
+        String email = principal.getName(); 
         otpService.generateAndSendOtp(email, "CHANGE_PW");
         return ResponseEntity.ok("Đã gửi mã OTP đổi mật khẩu đến email của bạn.");
     }
@@ -201,7 +192,6 @@ public class AuthController {
         User user = userRepository.findByEmail(email).orElseThrow();
         UserAuth userAuth = userAuthRepository.findByUser(user).orElseThrow();
 
-        // Cần xóa Auth trước để không dính lỗi khóa ngoại (Foreign Key Constraint)
         userAuthRepository.delete(userAuth);
         userRepository.delete(user);
 
@@ -210,7 +200,7 @@ public class AuthController {
 
     @PostMapping("/request-deactivate-otp")
     public ResponseEntity<?> requestDeactivateOtp(Principal principal) {
-        String email = principal.getName(); // Trích xuất email từ JWT
+        String email = principal.getName();
         otpService.generateAndSendOtp(email, "DEACTIVATE_ACC");
         return ResponseEntity.ok("Đã gửi mã OTP xác nhận vô hiệu hóa tài khoản.");
     }
@@ -225,11 +215,9 @@ public class AuthController {
 
         User user = userRepository.findByEmail(email).orElseThrow();
         
-        // Chuyển trạng thái sang Vô hiệu hóa
         user.setStatus("INACTIVE");
         userRepository.save(user);
 
-        // Lưu ý: Ở môi trường thực tế, Frontend sẽ lập tức xóa Token hiện tại và đẩy user ra màn hình Login
         return ResponseEntity.ok("Tài khoản của bạn đã được vô hiệu hóa tạm thời.");
     }
 }

@@ -1,0 +1,17 @@
+spring:
+  mail:
+    username: test_user
+    password: test_password
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: test_google_id
+            client-secret: test_google_secret
+  jwt:
+    secret: 9a4f2c8d3e1b5a6f7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b
+    expiration: 3600000
+  flyway:
+    clean-disabled: false
+    clean-on-validation-error: true

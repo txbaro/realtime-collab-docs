@@ -2,6 +2,7 @@ package com.txbaro.realtime_collab_docs.security;
 
 import com.txbaro.realtime_collab_docs.entity.User;
 import com.txbaro.realtime_collab_docs.repository.UserRepository;
+import com.txbaro.realtime_collab_docs.security.JwtUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -13,12 +14,11 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 
 @Component
-@RequiredArgsConstructor // Chỉ giữ lại các dependency cần thiết
+@RequiredArgsConstructor 
 public class GoogleAuthenticationSuccessHandler implements AuthenticationSuccessHandler {
 
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
-    // Đã xóa: private final GoogleAuthenticationSuccessHandler googleAuthenticationSuccessHandler;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,

@@ -48,6 +48,10 @@ spring:
             scope:
               - email
               - profile
+  
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration: ${JWT_EXPIRATION}
 
 logging:
   level:
