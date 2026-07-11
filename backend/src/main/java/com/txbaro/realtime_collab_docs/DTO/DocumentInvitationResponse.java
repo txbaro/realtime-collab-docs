@@ -14,9 +14,12 @@ import java.util.UUID;
 public class DocumentInvitationResponse {
     private UUID id;
     private UUID documentId;
+    private String documentTitle;
     private UUID inviteeId;
     private String inviteeEmail;
     private UUID inviterId;
+    private String inviterName;
+    private String inviterEmail;
     private DocumentRole role;
     private String status;
     private ZonedDateTime createdAt;

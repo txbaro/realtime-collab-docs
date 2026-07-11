@@ -21,6 +21,9 @@ public class DocumentResponse {
     private Map<String, Object> content;
     private UUID ownerId;
     private boolean isTrashed;
+    private String role;
+    private String ownerName;
+    private String ownerEmail;
     private ZonedDateTime createdAt;
     private ZonedDateTime updatedAt;
 }

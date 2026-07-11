@@ -33,6 +33,7 @@ import static org.springframework.security.test.web.servlet.setup.SecurityMockMv
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -1009,5 +1010,214 @@ class DocumentControllerIntegrationTest {
 
         mockMvc.perform(delete("/api/documents/" + savedDoc.getId() + "/members/" + randomUserId))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void getAllDocuments_success() throws Exception {
+        Document doc = Document.builder()
+                .title("Tài liệu 1")
+                .owner(testUser)
+                .isTrashed(false)
+                .build();
+        Document savedDoc = documentRepository.saveAndFlush(doc);
+
+        DocumentPermission permission = DocumentPermission.builder()
+                .document(savedDoc)
+                .user(testUser)
+                .role(DocumentRole.OWNER)
+                .build();
+        documentPermissionRepositorySpy.save(permission);
+
+        mockMvc.perform(get("/api/documents")
+                        .header("Authorization", "Bearer " + jwtToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].title").value("Tài liệu 1"))
+                .andExpect(jsonPath("$[0].role").value("OWNER"));
+    }
+
+    @Test
+    void getDocumentById_success() throws Exception {
+        Document doc = Document.builder()
+                .title("Tài liệu chi tiết")
+                .owner(testUser)
+                .isTrashed(false)
+                .build();
+        Document savedDoc = documentRepository.saveAndFlush(doc);
+
+        DocumentPermission permission = DocumentPermission.builder()
+                .document(savedDoc)
+                .user(testUser)
+                .role(DocumentRole.OWNER)
+                .build();
+        documentPermissionRepositorySpy.save(permission);
+
+        mockMvc.perform(get("/api/documents/" + savedDoc.getId())
+                        .header("Authorization", "Bearer " + jwtToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.title").value("Tài liệu chi tiết"))
+                .andExpect(jsonPath("$.role").value("OWNER"))
+                .andExpect(jsonPath("$.ownerName").value("John Doe"))
+                .andExpect(jsonPath("$.ownerEmail").value("john.doe@example.com"));
+    }
+
+    @Test
+    void getDocumentById_forbidden() throws Exception {
+        // Tạo một user khác
+        User anotherUser = User.builder()
+                .firstname("Another")
+                .lastname("User")
+                .email("another@gmail.com")
+                .status("ACTIVE")
+                .build();
+        userRepository.save(anotherUser);
+
+        Document doc = Document.builder()
+                .title("Tài liệu bảo mật")
+                .owner(anotherUser)
+                .isTrashed(false)
+                .build();
+        Document savedDoc = documentRepository.saveAndFlush(doc);
+
+        // testUser không có quyền trên savedDoc
+        mockMvc.perform(get("/api/documents/" + savedDoc.getId())
+                        .header("Authorization", "Bearer " + jwtToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getDocumentById_notFound() throws Exception {
+        UUID randomId = UUID.randomUUID();
+        mockMvc.perform(get("/api/documents/" + randomId)
+                        .header("Authorization", "Bearer " + jwtToken))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void getPendingInvitations_success() throws Exception {
+        // 1. Tạo một user làm người mời (inviter)
+        User inviter = User.builder()
+                .firstname("Alice")
+                .lastname("Smith")
+                .email("alice.smith@example.com")
+                .status("ACTIVE")
+                .build();
+        inviter = userRepository.save(inviter);
+
+        // 2. Tạo một tài liệu của inviter
+        Document doc = Document.builder()
+                .title("Tài liệu nghiên cứu")
+                .owner(inviter)
+                .isTrashed(false)
+                .build();
+        doc = documentRepository.save(doc);
+
+        // 3. Tạo lời mời cho testUser
+        DocumentInvitation invitation = DocumentInvitation.builder()
+                .document(doc)
+                .invitee(testUser)
+                .inviter(inviter)
+                .role(DocumentRole.EDITOR)
+                .status("PENDING")
+                .build();
+        documentInvitationRepository.save(invitation);
+
+        // 4. Gọi API lấy danh sách lời mời của testUser
+        mockMvc.perform(get("/api/documents/invitations")
+                        .header("Authorization", "Bearer " + jwtToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].documentTitle", is("Tài liệu nghiên cứu")))
+                .andExpect(jsonPath("$[0].inviterName", is("Alice Smith")))
+                .andExpect(jsonPath("$[0].inviterEmail", is("alice.smith@example.com")))
+                .andExpect(jsonPath("$[0].role", is("EDITOR")))
+                .andExpect(jsonPath("$[0].status", is("PENDING")));
+    }
+
+    @Test
+    void getPendingInvitations_unauthorized() throws Exception {
+        mockMvc.perform(get("/api/documents/invitations"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void inviteUser_reInviteExistingMember_success() throws Exception {
+        // Tạo invitee
+        User invitee = User.builder()
+                .firstname("Jane")
+                .lastname("Smith")
+                .email("jane.smith@example.com")
+                .status("ACTIVE")
+                .build();
+        userRepository.save(invitee);
+
+        // Tạo tài liệu và lời mời cũ đã ACCEPTED
+        Document doc = Document.builder()
+                .title("Tài liệu dùng chung")
+                .owner(testUser)
+                .content(java.util.Collections.singletonMap("key", "value"))
+                .isTrashed(false)
+                .build();
+        Document savedDoc = documentRepository.save(doc);
+
+        DocumentInvitation invitation = DocumentInvitation.builder()
+                .document(savedDoc)
+                .invitee(invitee)
+                .inviter(testUser)
+                .role(DocumentRole.VIEWER)
+                .status("ACCEPTED")
+                .build();
+        documentInvitationRepository.save(invitation);
+
+        // Mời lại cùng người dùng đó sang vai trò EDITOR
+        String payload = "{\"email\":\"jane.smith@example.com\",\"role\":\"EDITOR\"}";
+
+        mockMvc.perform(post("/api/documents/" + savedDoc.getId() + "/members")
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status", is("PENDING")))
+                .andExpect(jsonPath("$.role", is("EDITOR")));
+    }
+
+    @Test
+    void updateMemberRole_success() throws Exception {
+        // Tạo member và tài liệu
+        User member = User.builder()
+                .firstname("Bob")
+                .lastname("Johnson")
+                .email("bob.johnson@example.com")
+                .status("ACTIVE")
+                .build();
+        userRepository.save(member);
+
+        Document doc = Document.builder()
+                .title("Tài liệu phân quyền")
+                .owner(testUser)
+                .content(java.util.Collections.singletonMap("key", "value"))
+                .isTrashed(false)
+                .build();
+        Document savedDoc = documentRepository.save(doc);
+
+        // Tạo permission ban đầu làm VIEWER
+        DocumentPermission permission = DocumentPermission.builder()
+                .document(savedDoc)
+                .user(member)
+                .role(DocumentRole.VIEWER)
+                .build();
+        documentPermissionRepositorySpy.save(permission);
+
+        // Cập nhật lên EDITOR
+        String payload = "{\"role\":\"EDITOR\"}";
+
+        mockMvc.perform(put("/api/documents/" + savedDoc.getId() + "/members/" + member.getId() + "/role")
+                        .header("Authorization", "Bearer " + jwtToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isOk());
+
+        // Kiểm tra permission đã được đổi sang EDITOR
+        DocumentPermission updated = documentPermissionRepositorySpy.findByDocumentIdAndUserId(savedDoc.getId(), member.getId()).orElseThrow();
+        assertEquals(DocumentRole.EDITOR, updated.getRole());
     }
 }

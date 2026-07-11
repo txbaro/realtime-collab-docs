@@ -37,6 +37,7 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/api/auth/register", 
                     "/api/auth/login", 
+                    "/api/auth/verify-account",
                     "/api/auth/test-email", 
                     "/api/auth/request-register-otp",
                     "/api/auth/request-password-otp",
@@ -45,7 +46,8 @@ public class SecurityConfig {
                     "/v3/api-docs",          // Bổ sung dòng này để hết lỗi 401
                     "/v3/api-docs/**",
                     "/swagger-ui/**",
-                    "/swagger-ui.html"
+                    "/swagger-ui.html",
+                    "/ws/**"
                 ).permitAll()
                 .anyRequest().authenticated()
             )

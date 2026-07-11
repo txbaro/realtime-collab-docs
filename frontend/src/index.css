@@ -1,15 +1,15 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-  --primary: #8b5cf6;
-  --primary-hover: #7c3aed;
-  --background: #0f0c1b;
-  --card-bg: rgba(25, 20, 45, 0.45);
-  --card-border: rgba(255, 255, 255, 0.08);
-  --text-main: #f3f4f6;
-  --text-muted: #9ca3af;
-  --error: #ef4444;
-  --success: #10b981;
+  --primary: #0b57d0;
+  --primary-hover: #0842a0;
+  --background: #f1f3f4;
+  --card-bg: #ffffff;
+  --card-border: #dadce0;
+  --text-main: #202124;
+  --text-muted: #5f6368;
+  --error: #b3261e;
+  --success: #146c2e;
 }
 
 * {
@@ -19,36 +19,30 @@
 }
 
 body {
-  font-family: 'Outfit', sans-serif;
-  background: radial-gradient(circle at 50% 50%, #1e133a 0%, var(--background) 70%);
+  font-family: 'Inter', sans-serif;
+  background: var(--background);
   color: var(--text-main);
   min-height: 100vh;
   display: flex;
-  justify-content: center;
-  align-items: center;
+  flex-direction: column;
   overflow-x: hidden;
-  position: relative;
 }
 
-/* Background glow elements */
-body::before, body::after {
-  content: "";
-  position: absolute;
-  width: 300px;
-  height: 300px;
-  border-radius: 50%;
-  background: var(--primary);
-  filter: blur(150px);
-  opacity: 0.15;
-  z-index: 0;
+/* Tối ưu thanh cuộn (scrollbar) kiểu tối giản của Google Chrome */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-body::before {
-  top: 15%;
-  left: 15%;
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-body::after {
-  bottom: 15%;
-  right: 15%;
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
