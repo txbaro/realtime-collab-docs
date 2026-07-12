@@ -41,6 +41,8 @@ public class SecurityConfig {
                     "/api/auth/test-email", 
                     "/api/auth/request-register-otp",
                     "/api/auth/request-password-otp",
+                    "/api/auth/verify-password-otp",
+                    "/api/auth/change-password",
                     "/api/auth/request-delete-otp",
                     "/api/auth/request-deactivate-otp",
                     "/v3/api-docs",          // Bổ sung dòng này để hết lỗi 401

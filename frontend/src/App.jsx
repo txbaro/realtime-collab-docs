@@ -3,10 +3,14 @@ import { User, Lock, Mail, Key, LogOut, CheckCircle2, AlertTriangle, ArrowRight,
 import DocumentList from './components/DocumentList'
 import DocumentEditor from './components/DocumentEditor'
 import InvitationModal from './components/InvitationModal'
+import ForgotPasswordModal from './components/ForgotPasswordModal'
+import EditProfileModal from './components/EditProfileModal'
 import './App.css'
 
 function App() {
   const [activeTab, setActiveTab] = useState('login')
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
+  const [showEditProfile, setShowEditProfile] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [toasts, setToasts] = useState([])
   const [token, setToken] = useState(localStorage.getItem('token') || '')
@@ -336,6 +340,16 @@ function App() {
                         />
                       </div>
                     </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '-8px', marginBottom: '16px' }}>
+                      <button 
+                        type="button" 
+                        className="btn-flat" 
+                        style={{ fontSize: '13px', color: 'var(--google-blue)', padding: 0, height: 'auto', fontWeight: '500', cursor: 'pointer' }}
+                        onClick={() => setShowForgotPassword(true)}
+                      >
+                        Quên mật khẩu?
+                      </button>
+                    </div>
                     <button type="submit" className="btn-submit" disabled={isLoading}>
                       {isLoading ? <div className="spinner" style={{ borderTopColor: 'white' }}></div> : <>Đăng nhập <ArrowRight size={18} /></>}
                     </button>
@@ -511,12 +525,28 @@ function App() {
                   </button>
 
                   {/* Avatar & Email */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderLeft: '1px solid var(--google-gray-border)', paddingLeft: '12px' }}>
+                  <div 
+                    onClick={() => setShowEditProfile(true)}
+                    title="Chỉnh sửa thông tin cá nhân"
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '8px', 
+                      borderLeft: '1px solid var(--google-gray-border)', 
+                      paddingLeft: '12px',
+                      cursor: 'pointer',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      transition: 'background-color 0.2s'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.04)' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                  >
                     <div className="avatar-glow" style={{ width: '32px', height: '32px', fontSize: '13px', background: 'var(--google-blue)' }}>
                       {((profile.firstname ? profile.firstname[0] : '') + (profile.lastname ? profile.lastname[0] : '')).toUpperCase() || 'U'}
                     </div>
                     <div style={{ textAlign: 'left' }}>
-                      <h3 style={{ fontSize: '13px', color: 'var(--google-text-dark)', fontWeight: '600' }}>{profile.firstname} {profile.lastname}</h3>
+                      <h3 style={{ fontSize: '13px', color: 'var(--google-text-dark)', fontWeight: '600', margin: 0 }}>{profile.firstname} {profile.lastname}</h3>
                     </div>
                   </div>
 
@@ -549,6 +579,26 @@ function App() {
           onRefreshDocuments={() => {
             setRefreshDocsTrigger(prev => prev + 1)
           }}
+        />
+      )}
+
+      {showForgotPassword && (
+        <ForgotPasswordModal
+          onClose={() => setShowForgotPassword(false)}
+          showToast={showToast}
+        />
+      )}
+
+      {showEditProfile && (
+        <EditProfileModal
+          profile={profile}
+          token={token}
+          onClose={() => setShowEditProfile(false)}
+          showToast={showToast}
+          onProfileUpdated={(firstname, lastname) => {
+            setProfile(prev => ({ ...prev, firstname, lastname }))
+          }}
+          onLogout={handleLogout}
         />
       )}
     </div>

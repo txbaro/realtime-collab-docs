@@ -14,6 +14,7 @@ import com.txbaro.realtime_collab_docs.dto.OtpRequest;
 import com.txbaro.realtime_collab_docs.dto.ChangePasswordRequest;
 import com.txbaro.realtime_collab_docs.dto.DeleteAccountRequest;
 import com.txbaro.realtime_collab_docs.dto.UserInfoResponse;
+import com.txbaro.realtime_collab_docs.dto.UpdateProfileRequest;
 import lombok.RequiredArgsConstructor;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
@@ -151,15 +152,58 @@ public class AuthController {
     }
 
     @PostMapping("/request-password-otp")
-    public ResponseEntity<?> requestPasswordOtp(Principal principal) {
-        String email = principal.getName(); 
-        otpService.generateAndSendOtp(email, "CHANGE_PW");
+    public ResponseEntity<?> requestPasswordOtp(@RequestParam(required = false) String email, Principal principal) {
+        String targetEmail = null;
+        if (principal != null) {
+            targetEmail = principal.getName();
+        } else if (email != null && !email.trim().isEmpty()) {
+            targetEmail = email.trim();
+        }
+        
+        if (targetEmail == null) {
+            return ResponseEntity.badRequest().body("Lỗi: Email không được để trống!");
+        }
+        
+        if (!userRepository.existsByEmail(targetEmail)) {
+            return ResponseEntity.badRequest().body("Lỗi: Email không tồn tại trong hệ thống!");
+        }
+
+        otpService.generateAndSendOtp(targetEmail, "CHANGE_PW");
         return ResponseEntity.ok("Đã gửi mã OTP đổi mật khẩu đến email của bạn.");
+    }
+
+    @PostMapping("/verify-password-otp")
+    public ResponseEntity<?> verifyPasswordOtp(@RequestParam String email, @RequestParam String otp) {
+        if (email == null || email.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body("Lỗi: Email không được để trống!");
+        }
+        if (otp == null || otp.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body("Lỗi: Mã OTP không được để trống!");
+        }
+
+        String key = "OTP:CHANGE_PW:" + email.trim();
+        String savedOtp = redisTemplate.opsForValue().get(key);
+        if (savedOtp != null && savedOtp.trim().equals(otp.trim())) {
+            return ResponseEntity.ok("Mã OTP chính xác.");
+        }
+        return ResponseEntity.badRequest().body("Lỗi: Mã OTP không chính xác hoặc đã hết hạn!");
     }
 
     @PutMapping("/change-password")
     public ResponseEntity<?> changePassword(@RequestBody ChangePasswordRequest request, Principal principal) {
-        String email = principal.getName();
+        String email = null;
+        boolean checkOldPassword = false;
+        
+        if (principal != null) {
+            email = principal.getName();
+            checkOldPassword = true;
+        } else if (request.getEmail() != null && !request.getEmail().trim().isEmpty()) {
+            email = request.getEmail().trim();
+        }
+
+        if (email == null) {
+            return ResponseEntity.badRequest().body("Lỗi: Email không được để trống!");
+        }
 
         if (!otpService.validateOtp(email, request.getOtpCode(), "CHANGE_PW")) {
             return ResponseEntity.badRequest().body("Lỗi: Mã OTP sai hoặc đã hết hạn!");
@@ -167,6 +211,15 @@ public class AuthController {
 
         User user = userRepository.findByEmail(email).orElseThrow();
         UserAuth userAuth = userAuthRepository.findByUser(user).orElseThrow();
+        
+        if (checkOldPassword) {
+            if (request.getOldPassword() == null || request.getOldPassword().isEmpty()) {
+                return ResponseEntity.badRequest().body("Lỗi: Vui lòng nhập mật khẩu cũ!");
+            }
+            if (!passwordEncoder.matches(request.getOldPassword(), userAuth.getPasswordHash())) {
+                return ResponseEntity.badRequest().body("Lỗi: Mật khẩu cũ không chính xác!");
+            }
+        }
         
         userAuth.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userAuthRepository.save(userAuth);
@@ -219,5 +272,23 @@ public class AuthController {
         userRepository.save(user);
 
         return ResponseEntity.ok("Tài khoản của bạn đã được vô hiệu hóa tạm thời.");
+    }
+
+    @PutMapping("/profile")
+    public ResponseEntity<?> updateProfile(@RequestBody UpdateProfileRequest request, Principal principal) {
+        String email = principal.getName();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+        
+        if (request.getFirstname() == null || request.getFirstname().trim().isEmpty() ||
+            request.getLastname() == null || request.getLastname().trim().isEmpty()) {
+            return ResponseEntity.badRequest().body("Lỗi: Họ và tên không được để trống!");
+        }
+
+        user.setFirstname(request.getFirstname().trim());
+        user.setLastname(request.getLastname().trim());
+        userRepository.save(user);
+
+        return ResponseEntity.ok("Cập nhật thông tin cá nhân thành công!");
     }
 }

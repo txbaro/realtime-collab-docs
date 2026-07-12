@@ -633,21 +633,22 @@ input:focus, select:focus {
   margin-left: -1px;
   margin-right: -1px;
   border-left: 2px solid;
-  border-right: 2px solid;
+  border-right: none;
   border-color: inherit;
   word-break: normal;
   pointer-events: none;
   animation: cursor-blink 1s step-end infinite;
+  background: transparent !important;
 }
 
 @keyframes cursor-blink {
-  from, to { border-color: transparent; }
-  50% { border-color: currentColor; }
+  50% { border-left-color: transparent; }
 }
 
 .tiptap-editor-content .ProseMirror .collaboration-cursor__label {
   position: absolute;
-  top: -1.4em;
+  top: 100%;
+  margin-top: 2px;
   left: -2px;
   font-size: 10px;
   font-style: normal;
@@ -656,10 +657,14 @@ input:focus, select:focus {
   user-select: none;
   color: #ffffff;
   padding: 2px 6px;
-  border-radius: 2px 2px 2px 0;
-  background: inherit;
+  border-radius: 0 3px 3px 3px;
   white-space: nowrap;
   pointer-events: none;
   z-index: 10;
   box-shadow: 0 1px 3px rgba(60,64,67,0.2);
 }
+
+.tiptap-editor-content .ProseMirror .collaboration-cursor__selection {
+  opacity: 0.3;
+}
+
